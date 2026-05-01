@@ -1,0 +1,598 @@
+<!doctype html>
+<html lang="zh-CN">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>立体几何模型：正四面体与球的演变 (补形法)</title><!-- 引入核心库 --> <!-- original src: https://unpkg.com/three@0.128.0/build/three.min.js -->
+  <script src="https://musk-online.fbcontent.cn/pub-musk-ai-studio/workflow/file/document/hGF9JZLpnd9MskwvwHQkPb.js"></script><!-- original src: https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js -->
+  <script src="https://musk-online.fbcontent.cn/pub-musk-ai-studio/workflow/file/document/RWmMbNozmHPiQHmjoAn8Gn.js"></script><!-- original src: https://unpkg.com/three@0.128.0/examples/js/renderers/CSS2DRenderer.js -->
+  <script src="https://musk-online.fbcontent.cn/pub-musk-ai-studio/workflow/file/document/6fg5Tp8MeP9xGup9He6RYf.js"></script>
+  <style>
+        :root {
+            --sidebar-width: 540px; 
+            --primary-color: #2c3e50;
+            --tetra-color: #E67E22; /* 橙色系 - 正四面体 */
+            --sphere-color: #255C95; /* 深天蓝色 - 球体 */
+            --font-family: "Times New Roman", Times, serif;
+        }
+
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #f0f2f5; font-family: 'Segoe UI', sans-serif; }
+        
+        #container { display: flex; width: 100vw; height: 100vh; }
+
+        /* --- 左侧边栏 --- */
+        #sidebar {
+            width: var(--sidebar-width); min-width: var(--sidebar-width);
+            background: #fff; border-right: 1px solid #ddd;
+            display: flex; flex-direction: column; z-index: 20;
+            box-shadow: 4px 0 15px rgba(0,0,0,0.05);
+            height: 100%;
+        }
+
+        .header { padding: 15px 20px; background: var(--primary-color); color: white; text-align: center; flex-shrink: 0; }
+        .header h2 { margin: 0; font-size: 1.4rem; letter-spacing: 1px; }
+
+        /* --- 印刷级数学公式排版 --- */
+        .math-text { font-family: var(--font-family); font-style: italic; }
+        .num-text { font-family: var(--font-family); font-style: normal; }
+        .sub { font-size: 0.7em; vertical-align: -0.3em; margin-right: 1px; }
+        .sup { font-size: 0.7em; vertical-align: 0.6em; margin-left: 1px; }
+
+        .math-group { display: inline-flex; align-items: center; vertical-align: middle; }
+        .supsub-box { display: inline-flex; flex-direction: column; justify-content: center; height: 1.2em; margin-left: 2px; font-size: 0.75em; line-height: 1; }
+        .supsub-box .sup-item { margin-bottom: 0px; transform: translateY(-2px); }
+        .supsub-box .sub-item { transform: translateY(2px); }
+
+        .formula-row { display: flex; align-items: center; justify-content: center; font-size: 1.15rem; margin: 6px 0; color: #222; }
+        .sqrt-box { display: inline-flex; align-items: center; }
+        .sqrt-sign { font-size: 1.4em; line-height: 0.8; margin-right: 2px; }
+        .sqrt-content { border-top: 1.5px solid #222; padding-top: 3px; }
+        .frac-box { display: inline-flex; flex-direction: column; text-align: center; vertical-align: middle; margin: 0 4px; font-size: 0.8em; }
+        .frac-top { border-bottom: 1.5px solid #222; padding-bottom: 1px; display: block; }
+        .frac-bot { padding-top: 1px; display: block; }
+
+        /* --- 演变控制台 --- */
+        .evolution-panel {
+            background: #f4f8fb; border-left: 4px solid var(--sphere-color); margin: 10px 15px; padding: 12px 15px; border-radius: 4px; flex-shrink: 0;
+        }
+        .evo-title { font-weight: bold; color: #2980b9; font-size: 0.95rem; margin-bottom: 8px; display: flex; justify-content: space-between;}
+        .evo-value { font-family: var(--font-family); color: #333; }
+        input[type=range].radius-slider { width: 100%; accent-color: var(--sphere-color); cursor: pointer; height: 6px; }
+
+        /* --- 手风琴步骤 --- */
+        .accordion { flex: 1; padding: 0 15px 15px 15px; overflow-y: auto; }
+        .step-box { margin-bottom: 10px; border: 1px solid #eee; border-radius: 6px; overflow: hidden; background: #fff; }
+        .step-head {
+            padding: 10px 15px; background: #f8f9fa; cursor: pointer;
+            font-weight: 600; color: #444; display: flex; justify-content: space-between;
+            transition: 0.2s; border-bottom: 1px solid transparent; font-size: 0.95rem;
+        }
+        .step-head:hover { background: #f0f0f0; }
+        .step-head.active { background: #eef6fc; color: var(--sphere-color); border-left: 4px solid var(--sphere-color); border-bottom: 1px solid #e1e1e1; }
+        .step-body { display: none; padding: 12px 15px; color: #444; font-size: 0.9rem; line-height: 1.5; }
+        .step-body.show { display: block; }
+        .step-body p { margin-top: 0; margin-bottom: 8px; }
+
+        /* 推导过程样式 */
+        .derivation-box { background: #fafafa; border: 1px dashed #ccc; padding: 10px; border-radius: 4px; margin-top: 8px; }
+        .derivation-title { font-weight: bold; font-size: 0.85rem; color: #555; margin-bottom: 5px; border-bottom: 1px solid #eee; padding-bottom: 3px;}
+        .derivation-step { margin-bottom: 6px; display: flex; align-items: flex-start; }
+        .derivation-step .num-text { margin-right: 5px; font-weight: bold; color: #777; }
+
+        .hl-green { color: #27ae60; font-weight: bold; }
+        .hl-orange { color: #d35400; font-weight: bold; }
+        .hl-purple { color: #8e44ad; font-weight: bold; }
+
+        /* --- 右侧画布 --- */
+        #canvas-wrap { flex: 1; position: relative; background: #fdfdfd; min-width: 0; }
+        #three-canvas { width: 100%; height: 100%; display: block; outline: none; }
+
+        .label {
+            font-family: var(--font-family); font-style: italic; font-weight: bold;
+            font-size: 18px; color: #000; pointer-events: none; user-select: none;
+            text-shadow: 2px 2px 0px #fff, -1px -1px 0px #fff;
+        }
+        .label sub { font-size: 0.6em; margin-left: -2px; }
+
+        /* --- 底部控制栏 --- */
+        #controls {
+            position: absolute; bottom: 25px; left: 50%; transform: translateX(-50%);
+            background: rgba(255,255,255,0.95); backdrop-filter: blur(8px);
+            padding: 10px 25px; border-radius: 50px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+            display: flex; align-items: center; gap: 20px; z-index: 100; border: 1px solid #eee;
+        }
+        .ctrl-btn {
+            background: var(--primary-color); color: white; border: none;
+            padding: 8px 16px; border-radius: 20px; cursor: pointer;
+            font-size: 0.85rem; transition: all 0.2s; display: flex; align-items: center; gap: 5px; white-space: nowrap;
+        }
+        .ctrl-btn:hover { background: #34495e; transform: translateY(-2px); }
+        
+        .speed-wrap { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: #666; font-weight: 600; background: #f4f6f8; padding: 6px 12px; border-radius: 20px;}
+        .progress-bar-slider { 
+            -webkit-appearance: none; width: 100px; height: 6px; background: #ddd; border-radius: 3px; outline: none; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .progress-bar-slider::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none; width: 12px; height: 12px; border-radius: 50%; background: var(--primary-color); cursor: pointer;
+            box-shadow: -100vw 0 0 100vw var(--sphere-color); 
+        }
+        
+        #loading { position: absolute; top:50%; left:50%; transform:translate(-50%, -50%); color: #666; font-size: 1.2rem; pointer-events: none; }
+    </style>
+  <meta name="copyright" content="学科网（zxxk.com）版权所有">
+  <meta name="signature" content="QQABAQaEogigAIBAAAhCEwXKCkMYkBECCCgOhFAQsAAAyRNABAA=">
+ </head>
+ <body>
+  <div id="container">
+   <div id="sidebar">
+    <div class="header">
+     <h2>正四面体与球的演变</h2>
+     <p style="font-size:0.85rem; opacity:0.8; margin-top:5px">外接球 · 棱切球 · 内切球及推导</p>
+    </div>
+    <div class="evolution-panel">
+     <div class="evo-title">
+      <span>球体演变控制 (设四面体棱长 <span class="math-text">a</span>)</span> <span class="evo-value"><span class="math-text">R</span> <span class="num-text">=</span> <span id="r-val-display" class="num-text">0.00</span></span>
+     </div><input type="range" class="radius-slider" id="radius-slider" min="0" max="3.4641" step="0.01" value="0">
+     <div style="font-size:0.85rem; color:#666; margin-top:8px; text-align:center;">
+      经典比例法则: 
+      <br>
+      <div class="math-group" style="margin-top:4px; font-size:1.1rem; color:#333;">
+       <span class="math-text">R</span><span class="sub">内</span> <span class="num-text" style="margin:0 4px"> : </span> <span class="math-text">R</span><span class="sub">棱</span> <span class="num-text" style="margin:0 4px"> : </span> <span class="math-text">R</span><span class="sub">外</span> <span class="num-text" style="margin:0 4px"> = </span> <span class="num-text">1</span> <span class="num-text" style="margin:0 4px"> : </span> <span class="sqrt-box"><span class="sqrt-sign">√</span><span class="sqrt-content num-text">3</span></span> <span class="num-text" style="margin:0 4px"> : </span> <span class="num-text">3</span>
+      </div>
+     </div>
+    </div>
+    <div class="accordion">
+     <!-- Step 1 -->
+     <div class="step-box">
+      <div class="step-head active" onclick="app.setStep(0)">
+       <span>1. 模型认知：正四面体</span> <span>▼</span>
+      </div>
+      <div class="step-body show">
+       <p>正四面体 <span class="math-text">ABCD</span> 的4个面均为全等正三角形，设棱长为 <span class="math-text">a</span>，高为 <span class="math-text">h</span>。</p>
+       <p>体中心为 <span class="math-text">O</span>，同时也是内切球、棱切球、外接球的共同球心。</p>
+      </div>
+     </div><!-- Step 2 -->
+     <div class="step-box">
+      <div class="step-head" onclick="app.setStep(1)">
+       <span>2. 内切球推导 (与4面相切)</span> <span>▼</span>
+      </div>
+      <div class="step-body">
+       <p>球体与 4 个面均相切，切点为<span class="hl-green">各面重心</span>(如底面 <span class="math-text">H</span>)。</p>
+       <div class="derivation-box">
+        <div class="derivation-title">
+         推导过程：等体积法
+        </div>
+        <div class="derivation-step">
+         <span class="num-text">①</span> 连结中心 <span class="math-text">O</span> 与四顶点，将其分割为四个全等的小三棱锥。
+        </div>
+        <div class="formula-row">
+         <span class="math-text">V</span><span class="sub">ABCD</span> <span class="num-text">= 4 ×</span> <span class="math-text">V</span><span class="sub">O-BCD<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACIAAAAXCAIAAADhkgqLAAAAiklEQVR42u1UQQ7AIAjr/x8Ni6dNKEhYdhrEGDXaFqxCV8ijp1Mzln3xHGDQBohyGAXJ4mpg0LRpeSdRAwdE0SVOlCqwNYDblGOVtHsEFJIo1jM5qwiER3bQghTiCDhrtu/Zx+Y07aJommj4biLPHAnON4o3pSg/tTsbj9X/WpKifRtDMzRD83eaCxQcIGJp52i0AAAAAElFTkSuQmCC" style="position: absolute; left: -99999px; top: -99999px; opacity: 0; pointer-events: none; width: 1px; height: 1px;"></span>
+        </div>
+        <div class="formula-row" style="font-size:1rem;">
+         <div class="frac-box">
+          <span class="frac-top"><span class="num-text">1</span></span><span class="frac-bot"><span class="num-text">3</span></span>
+         </div><span class="math-text">S · h</span> <span class="num-text">= 4 ×</span> <span class="num-text">(</span>
+         <div class="frac-box">
+          <span class="frac-top"><span class="num-text">1</span></span><span class="frac-bot"><span class="num-text">3</span></span>
+         </div><span class="math-text">S · R</span><span class="sub">内</span> <span class="num-text">)</span>
+        </div>
+        <div class="derivation-step">
+         <span class="num-text">②</span> 化简得：<span class="hl-green math-text">R</span><span class="sub hl-green">内</span> <span class="hl-green num-text">=</span> <span class="hl-green math-text">h</span><span class="hl-green num-text"> / 4</span>。 
+         <br>
+          代入正四面体高 <span class="math-text">h = (</span><span class="sqrt-box"><span class="sqrt-sign" style="font-size:1em;">√</span><span class="sqrt-content num-text">6</span></span><span class="num-text">/3)</span><span class="math-text">a</span>，得：
+        </div>
+        <div class="formula-row">
+         <span class="math-text">R</span><span class="sub">内</span> <span class="num-text" style="margin:0 6px">=</span>
+         <div class="frac-box">
+          <span class="frac-top"><span class="sqrt-box"><span class="sqrt-sign">√</span><span class="sqrt-content num-text">6</span></span></span> <span class="frac-bot"><span class="num-text">12</span></span>
+         </div><span class="math-text">a</span>
+        </div>
+       </div>
+      </div>
+     </div><!-- Step 3 (修改后的补形法) -->
+     <div class="step-box">
+      <div class="step-head" onclick="app.setStep(2)">
+       <span>3. 棱切球推导 (与6条棱相切,补形法)</span> <span>▼</span>
+      </div>
+      <div class="step-body">
+       <p>与 6 条棱相切，切点为棱中点。由于正四面体可以补形成一个正方体，其 6 条棱恰好是正方体 6 个面的面对角线。</p>
+       <div class="derivation-box">
+        <div class="derivation-title">
+         简要说明
+        </div>
+        <p>此时，正四面体的<span class="hl-orange">棱切球</span>，等价于该补形正方体的<span class="hl-green">内切球</span>。</p>
+        <p>设正方体棱长为 <span class="math-text">x</span>，则 <span class="math-text">R</span><span class="sub">棱</span> <span class="num-text">= x / 2</span>。</p>
+        <div class="formula-row">
+         <span class="math-text">R</span><span class="sub">棱</span> <span class="num-text" style="margin:0 6px">=</span>
+         <div class="frac-box">
+          <span class="frac-top"><span class="sqrt-box"><span class="sqrt-sign">√</span><span class="sqrt-content num-text">2</span></span></span> <span class="frac-bot"><span class="num-text">4</span></span>
+         </div><span class="math-text">a</span>
+        </div>
+       </div>
+      </div>
+     </div><!-- Step 4 -->
+     <div class="step-box">
+      <div class="step-head" onclick="app.setStep(3)">
+       <span>4. 外接球推导 (过4顶点)</span> <span>▼</span>
+      </div>
+      <div class="step-body">
+       <p>准确穿过 4 个顶点。半径 <span class="math-text">R</span><span class="sub">外</span> <span class="num-text">=</span> <span class="math-text">OA</span>。</p>
+       <div class="derivation-box">
+        <div class="derivation-title">
+         推导过程：高线比例法
+        </div>
+        <div class="derivation-step">
+         <span class="num-text">①</span> 在画布紫色的对称截面上，高线 <span class="math-text">AH</span> 穿过球心 <span class="math-text">O</span>。
+        </div>
+        <div class="derivation-step">
+         <span class="num-text">②</span> 由内切球推导可知 <span class="math-text">OH = R</span><span class="sub">内</span> <span class="num-text">=</span> <span class="math-text">h</span><span class="num-text"> / 4</span>。
+        </div>
+        <div class="derivation-step">
+         <span class="num-text">③</span> 故外接球半径 <span class="hl-purple math-text">R</span><span class="sub hl-purple">外</span> <span class="hl-purple num-text">=</span> <span class="hl-purple math-text">OA</span> <span class="hl-purple num-text">=</span> <span class="hl-purple math-text">h</span> <span class="hl-purple num-text">-</span> <span class="hl-purple math-text">OH</span> <span class="hl-purple num-text">=</span> <span class="hl-purple math-text">3h</span><span class="hl-purple num-text"> / 4</span>。 
+         <br>
+          (即 <span class="math-text">R</span><span class="sub">外</span> <span class="num-text">= 3</span><span class="math-text">R</span><span class="sub">内</span>)。代入 <span class="math-text">h</span> 得：
+        </div>
+        <div class="formula-row">
+         <span class="math-text">R</span><span class="sub">外</span> <span class="num-text" style="margin:0 6px">=</span>
+         <div class="frac-box">
+          <span class="frac-top"><span class="sqrt-box"><span class="sqrt-sign">√</span><span class="sqrt-content num-text">6</span></span></span> <span class="frac-bot"><span class="num-text">4</span></span>
+         </div><span class="math-text">a</span>
+        </div>
+       </div>
+      </div>
+     </div>
+    </div>
+   </div>
+   <div id="canvas-wrap">
+    <div id="loading">
+     场景加载中...
+    </div>
+    <div id="three-canvas"></div>
+    <div id="controls">
+     <button class="ctrl-btn" id="btn-auto-rotate"><span>▶</span> 自动旋转</button>
+     <div class="speed-wrap">
+      <span>转速</span> <input type="range" id="speed-slider" class="progress-bar-slider" min="1" max="10" value="3">
+     </div><button class="ctrl-btn" id="btn-reset"><span>↺</span> 复位</button>
+    </div>
+   </div>
+  </div>
+  <script>
+    const app = {
+        scene: null, camera: null, renderer: null, labelRenderer: null, controls: null,
+        objects: { dynamicGroup: null, sphere: null },
+        labels: {},
+        params: {
+            a_val: 5.656854,    // 使用坐标系正方体补形生成的正四面体，a = 4*sqrt(2) ≈ 5.6568
+            radius: 0.001,      
+            targetRadius: 0.001,
+            currentStep: 0,
+            isRotating: false,     
+            rotSpeed: 0.003,      
+            isDraggingSlider: false
+        },
+
+        // 基于 a = 4*sqrt(2) 预先计算的关键半径
+        R_IN: 1.154701,     // a * sqrt(6)/12 = 4*sqrt(2)*sqrt(6)/12 = 2*sqrt(3)/3 ≈ 1.1547
+        R_MID: 2.0,         // a * sqrt(2)/4 = 4*sqrt(2)*sqrt(2)/4 = 2 (等于补形正方体的一半)
+        R_OUT: 3.464101,    // a * sqrt(6)/4 = 4*sqrt(2)*sqrt(6)/4 = 2*sqrt(3) ≈ 3.4641
+
+        init: function() {
+            try {
+                if (typeof THREE === 'undefined') throw new Error("Three.js not loaded");
+
+                const container = document.getElementById('three-canvas');
+                const w = container.clientWidth;
+                const h = container.clientHeight;
+
+                this.scene = new THREE.Scene();
+                this.scene.background = new THREE.Color(0xfdfdfd);
+                
+                this.camera = new THREE.PerspectiveCamera(42, w/h, 0.1, 1000);
+                this.camera.position.set(13, 10, 15);
+                this.camera.lookAt(0, 0, 0);
+
+                this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                this.renderer.setSize(w, h);
+                this.renderer.setPixelRatio(window.devicePixelRatio);
+                container.appendChild(this.renderer.domElement);
+
+                this.labelRenderer = new THREE.CSS2DRenderer();
+                this.labelRenderer.setSize(w, h);
+                this.labelRenderer.domElement.style.position = 'absolute';
+                this.labelRenderer.domElement.style.top = '0';
+                this.labelRenderer.domElement.style.pointerEvents = 'none';
+                container.appendChild(this.labelRenderer.domElement);
+
+                this.scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+                const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+                dirLight.position.set(10, 20, 10);
+                this.scene.add(dirLight);
+
+                this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+                this.controls.enableDamping = true;
+
+                this.buildStaticModel();
+                document.getElementById('loading').style.display = 'none';
+
+                window.addEventListener('resize', () => this.onResize());
+                
+                const slider = document.getElementById('radius-slider');
+                slider.addEventListener('input', (e) => {
+                    this.params.isDraggingSlider = true;
+                    this.params.targetRadius = parseFloat(e.target.value);
+                    if(this.params.targetRadius < 0.01) this.params.targetRadius = 0.01;
+                    this.inferStepFromRadius(this.params.targetRadius);
+                });
+                slider.addEventListener('change', () => { this.params.isDraggingSlider = false; });
+
+                document.getElementById('btn-auto-rotate').addEventListener('click', () => {
+                    this.params.isRotating = !this.params.isRotating;
+                    document.getElementById('btn-auto-rotate').innerHTML = this.params.isRotating ? '<span>||</span> 暂停' : '<span>▶</span> 自动旋转';
+                });
+                document.getElementById('speed-slider').addEventListener('input', (e) => {
+                    this.params.rotSpeed = e.target.value * 0.001;
+                });
+                document.getElementById('btn-reset').addEventListener('click', () => {
+                    this.camera.position.set(13, 10, 15);
+                    this.camera.lookAt(0, 0, 0);
+                    this.controls.target.set(0, 0, 0);
+                    this.scene.rotation.set(0, 0, 0);
+                });
+
+                this.animate();
+                this.setStep(0);
+
+            } catch (e) {
+                console.error(e);
+                document.getElementById('loading').innerText = "加载失败，请检查网络或刷新重试";
+            }
+        },
+
+        createLabelObject: function(html) {
+            const div = document.createElement('div');
+            div.className = 'label';
+            div.innerHTML = html;
+            return new THREE.CSS2DObject(div);
+        },
+
+        manageLabel: function(key, visible, position) {
+            const label = this.labels[key];
+            if (!label) return;
+            if (visible) {
+                if (label.parent !== this.scene) this.scene.add(label);
+                if (position) label.position.copy(position);
+            } else {
+                if (label.parent === this.scene) this.scene.remove(label);
+            }
+        },
+
+        buildStaticModel: function() {
+            // 正四面体顶点定义 (使用极具教学价值的“正方体对角线”交错顶点构建)
+            // 这样的坐标构成的正四面体，刚好完美内接于边长为4的正方体中
+            const A = new THREE.Vector3(2, 2, 2);
+            const B = new THREE.Vector3(2, -2, -2);
+            const C = new THREE.Vector3(-2, 2, -2);
+            const D = new THREE.Vector3(-2, -2, 2);
+
+            const geoTetra = new THREE.BufferGeometry();
+            const vertices = new Float32Array([
+                A.x, A.y, A.z,  C.x, C.y, C.z,  B.x, B.y, B.z, 
+                A.x, A.y, A.z,  B.x, B.y, B.z,  D.x, D.y, D.z, 
+                A.x, A.y, A.z,  D.x, D.y, D.z,  C.x, C.y, C.z, 
+                B.x, B.y, B.z,  C.x, C.y, C.z,  D.x, D.y, D.z  
+            ]);
+            geoTetra.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+            geoTetra.computeVertexNormals();
+
+            // 材质：橙色系 #E67E22，半透明展示内部
+            const matTetra = new THREE.MeshPhongMaterial({ 
+                color: 0xE67E22, transparent: true, opacity: 0.15, 
+                side: THREE.DoubleSide, depthWrite: false
+            });
+            this.scene.add(new THREE.Mesh(geoTetra, matTetra));
+
+            // 棱边线
+            const edgesGeo = new THREE.EdgesGeometry(geoTetra);
+            const edgesMat = new THREE.LineBasicMaterial({ color: 0xd35400, linewidth: 2 });
+            this.scene.add(new THREE.LineSegments(edgesGeo, edgesMat));
+
+            // 球体 (深天蓝 #255C95, 严格设定透明度 0.5)
+            const sphereGeo = new THREE.SphereGeometry(1, 64, 64);
+            const sphereMat = new THREE.MeshPhongMaterial({ 
+                color: 0x255C95, transparent: true, opacity: 0.5, 
+                shininess: 60, depthWrite: false 
+            });
+            this.objects.sphere = new THREE.Mesh(sphereGeo, sphereMat);
+            this.scene.add(this.objects.sphere);
+
+            this.objects.dynamicGroup = new THREE.Group();
+            this.scene.add(this.objects.dynamicGroup);
+
+            // 永久标签
+            const addL = (txt, vec) => {
+                const l = this.createLabelObject(txt);
+                l.position.copy(vec).multiplyScalar(1.15);
+                this.scene.add(l);
+            };
+            addL("A", A); addL("B", B); addL("C", C); addL("D", D);
+            
+            this.labels['O'] = this.createLabelObject("O");
+            this.labels['O'].position.set(0.3, 0.3, 0);
+            this.scene.add(this.labels['O']);
+
+            // 动态标签暂存
+            this.labels['H'] = this.createLabelObject("H");
+            this.labels['R_mid'] = this.createLabelObject("R<span class='sub'>棱</span>");
+        },
+
+        inferStepFromRadius: function(r) {
+            let n = 0;
+            if (Math.abs(r - this.R_IN) < 0.2) n = 1;
+            else if (Math.abs(r - this.R_MID) < 0.2) n = 2;
+            else if (Math.abs(r - this.R_OUT) < 0.2) n = 3;
+            else if (r < 0.5) n = 0;
+            
+            if(n !== this.params.currentStep) {
+                this.params.currentStep = n;
+                document.querySelectorAll('.step-head').forEach((el, i) => el.classList.toggle('active', i===n));
+                document.querySelectorAll('.step-body').forEach((el, i) => el.classList.toggle('show', i===n));
+                this.drawDynamicElements(); 
+            }
+        },
+
+        setStep: function(n) {
+            this.params.currentStep = n;
+            
+            document.querySelectorAll('.step-head').forEach((el, i) => el.classList.toggle('active', i===n));
+            document.querySelectorAll('.step-body').forEach((el, i) => el.classList.toggle('show', i===n));
+
+            if (n === 0) this.params.targetRadius = 0.01;
+            if (n === 1) this.params.targetRadius = this.R_IN;
+            if (n === 2) this.params.targetRadius = this.R_MID;
+            if (n === 3) this.params.targetRadius = this.R_OUT;
+
+            this.drawDynamicElements();
+        },
+
+        addLine: function(p1, p2, mat, dash=false) {
+            const geo = new THREE.BufferGeometry().setFromPoints([p1, p2]);
+            const line = new THREE.Line(geo, mat);
+            if(dash) line.computeLineDistances();
+            this.objects.dynamicGroup.add(line);
+        },
+
+        addPoint: function(vec, colorHex) {
+            const m = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), new THREE.MeshBasicMaterial({color: colorHex}));
+            m.position.copy(vec);
+            this.objects.dynamicGroup.add(m);
+        },
+
+        drawDynamicElements: function() {
+            const grp = this.objects.dynamicGroup;
+            while(grp.children.length) grp.remove(grp.children[0]);
+
+            const step = this.params.currentStep;
+            
+            // 基础坐标
+            const A = new THREE.Vector3(2, 2, 2);
+            const B = new THREE.Vector3(2, -2, -2);
+            const C = new THREE.Vector3(-2, 2, -2);
+            const D = new THREE.Vector3(-2, -2, 2);
+            const O = new THREE.Vector3(0, 0, 0);
+
+            // 预设隐藏所有动态标签
+            this.manageLabel('H', false);
+            this.manageLabel('R_mid', false);
+
+            // ---------------- 内切球推导辅助线 (绿) ----------------
+            if (step === 1) {
+                const H = new THREE.Vector3().add(B).add(C).add(D).divideScalar(3);
+                this.addPoint(H, 0xff0000);
+                this.manageLabel('H', true, H.clone().multiplyScalar(1.2));
+
+                const matDash = new THREE.LineDashedMaterial({ color: 0x555555, dashSize: 0.2, gapSize: 0.1, linewidth: 2 });
+                this.addLine(A, H, matDash, true);
+                
+                const matGreen = new THREE.LineBasicMaterial({ color: 0x27ae60, linewidth: 3 });
+                this.addLine(O, H, matGreen);
+
+                const faceGeo = new THREE.BufferGeometry().setFromPoints([B, C, D]);
+                faceGeo.computeVertexNormals();
+                grp.add(new THREE.Mesh(faceGeo, new THREE.MeshBasicMaterial({ color: 0x27ae60, side: THREE.DoubleSide, opacity: 0.2, transparent: true })));
+            }
+
+            // ---------------- 棱切球推导：补形正方体 (橙/蓝虚线) ----------------
+            if (step === 2) {
+                // 绘制包围正四面体的正方体 BoxGeometry(4,4,4)
+                const boxGeo = new THREE.BoxGeometry(4, 4, 4);
+                const edges = new THREE.EdgesGeometry(boxGeo);
+                // 使用区别于正四面体的深灰蓝色虚线表示补形正方体
+                const boxMat = new THREE.LineDashedMaterial({ color: 0x34495e, dashSize: 0.2, gapSize: 0.15, linewidth: 2 });
+                const boxLine = new THREE.LineSegments(edges, boxMat);
+                boxLine.computeLineDistances();
+                grp.add(boxLine);
+
+                // 给正方体增加极其轻微的半透明面，突出面心切点
+                const faceMat = new THREE.MeshBasicMaterial({ color: 0x3498db, side: THREE.DoubleSide, opacity: 0.05, transparent: true });
+                grp.add(new THREE.Mesh(boxGeo, faceMat));
+
+                // 标出 6 个切点 (即正方体 6 个面心)
+                const pts =[
+                    new THREE.Vector3(2,0,0), new THREE.Vector3(-2,0,0),
+                    new THREE.Vector3(0,2,0), new THREE.Vector3(0,-2,0),
+                    new THREE.Vector3(0,0,2), new THREE.Vector3(0,0,-2)
+                ];
+                pts.forEach(p => this.addPoint(p, 0xff0000));
+
+                // 标出半径连线 (中心O到右侧面心)
+                const H_right = new THREE.Vector3(2,0,0);
+                const dMat = new THREE.LineDashedMaterial({ color: 0xd35400, dashSize: 0.2, gapSize: 0.1, linewidth: 2 });
+                this.addLine(O, H_right, dMat, true);
+                
+                this.manageLabel('R_mid', true, new THREE.Vector3(1, 0.3, 0));
+            }
+
+            // ---------------- 外接球推导辅助线 (紫) ----------------
+            if (step === 3) {
+                const F = new THREE.Vector3(-2,0,0); // CD中点
+                const planeGeo = new THREE.BufferGeometry().setFromPoints([A, B, F]);
+                planeGeo.computeVertexNormals();
+                grp.add(new THREE.Mesh(planeGeo, new THREE.MeshBasicMaterial({ color: 0x8e44ad, side: THREE.DoubleSide, opacity: 0.3, transparent: true })));
+
+                const lineGeo = new THREE.BufferGeometry().setFromPoints([A, B, F, A]);
+                grp.add(new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: 0x8e44ad, linewidth: 2 })));
+
+                const H = new THREE.Vector3().add(B).add(C).add(D).divideScalar(3);
+                this.addPoint(H, 0xff0000);
+                this.manageLabel('H', true, H.clone().multiplyScalar(1.2));
+
+                const matDash = new THREE.LineDashedMaterial({ color: 0x8e44ad, dashSize: 0.2, gapSize: 0.1, linewidth: 2 });
+                this.addLine(A, H, matDash, true);
+
+                const matPurple = new THREE.LineBasicMaterial({ color: 0x8e44ad, linewidth: 3 });
+                this.addLine(O, A, matPurple);
+            }
+        },
+
+        onResize: function() {
+            const c = document.getElementById('three-canvas');
+            this.camera.aspect = c.clientWidth / c.clientHeight;
+            this.camera.updateProjectionMatrix();
+            this.renderer.setSize(c.clientWidth, c.clientHeight);
+            this.labelRenderer.setSize(c.clientWidth, c.clientHeight);
+        },
+
+        animate: function() {
+            requestAnimationFrame(() => this.animate());
+            
+            // 平滑演变动画
+            if (Math.abs(this.params.radius - this.params.targetRadius) > 0.001) {
+                this.params.radius += (this.params.targetRadius - this.params.radius) * 0.1;
+                
+                const visualR = Math.max(0.001, this.params.radius);
+                this.objects.sphere.scale.set(visualR, visualR, visualR);
+                
+                if (!this.params.isDraggingSlider) {
+                    document.getElementById('radius-slider').value = this.params.radius;
+                }
+                document.getElementById('r-val-display').innerText = this.params.radius.toFixed(2);
+                
+                this.objects.sphere.visible = (this.params.radius > 0.05);
+            }
+
+            // 自动旋转 (绕过点A的垂线，即Y轴)
+            if (this.params.isRotating) {
+                this.scene.rotation.y += this.params.rotSpeed; 
+            }
+
+            this.controls.update();
+            this.renderer.render(this.scene, this.camera);
+            this.labelRenderer.render(this.scene, this.camera);
+        }
+    };
+
+    window.onload = () => app.init();
+</script>
+ </body>
+</html>

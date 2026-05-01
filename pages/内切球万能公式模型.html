@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>模型九：内切球模型 (完美演示版)</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --accent: #d35400;
+            --bg-sidebar: #f8f9fa;
+            --border: #dee2e6;
+        }
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; background: #fff; }
+        
+        /* === 核心排版 === */
+        .math-font { font-family: 'Times New Roman', serif; font-style: italic; }
+        .num-font { font-family: 'Times New Roman', serif; font-style: normal; }
+        
+        .formula-box { 
+            background: white; padding: 15px; border-radius: 8px; 
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08); border: 1px solid #eee;
+            margin: 15px 0; font-size: 1.2em; text-align: center; 
+        }
+        
+        .fraction { display: inline-block; vertical-align: middle; text-align: center; margin: 0 4px; font-size: 0.95em; }
+        .fraction > span { display: block; padding: 0 3px; }
+        .fraction span.numerator { border-bottom: 1px solid #333; display: block; }
+        .fraction span.denominator { display: block; }
+        
+        sub { font-size: 0.7em; margin-left: 1px; vertical-align: sub; font-style: normal; }
+
+        /* === 侧边栏 === */
+        #sidebar {
+            width: 400px; background: var(--bg-sidebar); border-right: 1px solid var(--border);
+            display: flex; flex-direction: column; overflow-y: auto; z-index: 10;
+        }
+        .header { padding: 25px; background: white; border-bottom: 1px solid var(--border); }
+        .header h2 { margin: 0 0 10px 0; color: var(--primary); font-size: 1.6em; }
+        
+        /* === 手风琴交互 === */
+        .accordion-item { border-bottom: 1px solid var(--border); background: white; }
+        .accordion-header {
+            padding: 18px 25px; cursor: pointer; font-weight: 600; color: var(--primary);
+            display: flex; justify-content: space-between; align-items: center;
+            user-select: none; transition: background 0.2s;
+        }
+        .accordion-header:hover { background: #f8f9fa; }
+        .accordion-item.active .accordion-header { background: #fff3e0; color: var(--accent); border-left: 5px solid var(--accent); }
+        .accordion-content {
+            display: none; padding: 20px 25px; font-size: 1em; line-height: 1.6; color: #444; background: #fafafa;
+        }
+        .accordion-item.active .accordion-content { display: block; }
+
+        /* === 3D 画布区域 === */
+        #canvas-container { flex: 1; position: relative; background: #fff; overflow: hidden; }
+        
+        /* 3D 标签 */
+        .label {
+            position: absolute; font-family: 'Times New Roman', serif; font-weight: bold; font-size: 18px;
+            color: #000; pointer-events: none; text-shadow: 2px 2px 0 white, -1px -1px 0 white;
+            transform: translate(-50%, -50%); user-select: none;
+        }
+        
+        .color-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 6px; position: relative; top: 1px; }
+    </style>
+    
+    <!-- 引入 Three.js -->
+    <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+<!-- 侧边栏 -->
+<div id="sidebar">
+    <div class="header">
+        <h2>模型九：内切球模型</h2>
+        <p>一般三棱锥：等体积法推导半径</p>
+        <div class="formula-box">
+            <span class="math-font">r</span> = 
+            <div class="fraction">
+                <span class="numerator"><span class="num-font">3</span><span class="math-font">V</span></span>
+                <span class="denominator"><span class="math-font">S</span><sub>表</sub></span>
+            </div>
+        </div>
+    </div>
+
+    <div id="accordion">
+        <!-- 步骤 1 -->
+        <div class="accordion-item active" onclick="updateStep(1)">
+            <div class="accordion-header">第一步：模型认知 & 表面积</div>
+            <div class="accordion-content">
+                <p>三棱锥 <span class="math-font">P-ABC</span> 为一般三棱锥。</p>
+                <p><span class="color-dot" style="background:#8B5A00"></span><strong>内切球</strong>：位于锥体内部，与四个面相切。注意观察球体对背面棱线的遮挡关系。</p>
+                <p><span class="color-dot" style="background:#444"></span><strong>浅黑实线</strong>：三棱锥的外部棱线。</p>
+            </div>
+        </div>
+        <!-- 步骤 2 -->
+        <div class="accordion-item" onclick="updateStep(2)">
+            <div class="accordion-header">第二步：等体积分割</div>
+            <div class="accordion-content">
+                <p>设内切球球心为 <span class="math-font">O</span>。</p>
+                <p>连接 <span class="math-font">O</span> 与四个顶点 <span class="math-font">P,A,B,C</span>。</p>
+                <p><span class="color-dot" style="background:#ff0000"></span><strong>红色虚线</strong>：将大三棱锥分割为四个小三棱锥。</p>
+            </div>
+        </div>
+        <!-- 步骤 3 -->
+        <div class="accordion-item" onclick="updateStep(3)">
+            <div class="accordion-header">第三步：内切球与半径</div>
+            <div class="accordion-content">
+                <p>内切球半径为 <span class="math-font">r</span>。</p>
+                <p>球心 <span class="math-font">O</span> 到任意面的垂直距离均为 <span class="math-font">r</span>。</p>
+                <p><span class="color-dot" style="background:#ff0000"></span><strong>亮红实线</strong>：表示球心到底面的半径 <span class="math-font">r</span>。</p>
+            </div>
+        </div>
+        <!-- 步骤 4 -->
+        <div class="accordion-item" onclick="updateStep(4)">
+            <div class="accordion-header">第四步：建立等式求解</div>
+            <div class="accordion-content">
+                <p><span class="color-dot" style="background:#D8BFD8"></span><strong>浅紫区域</strong>：底部的小三棱锥 <span class="math-font">O-ABC</span>。</p>
+                <p>其体积 <span class="math-font">V</span><sub>小</sub> = 
+                <span class="fraction">
+                    <span class="numerator"><span class="num-font">1</span></span>
+                    <span class="denominator"><span class="num-font">3</span></span>
+                </span><span class="math-font">S</span><sub>底</sub> ⋅ <span class="math-font">r</span></p>
+                
+                <p>同理对四个小三棱锥求和，得总公式：</p>
+                <div class="formula-box">
+                    <span class="math-font">r</span> = 
+                    <div class="fraction">
+                        <span class="numerator"><span class="num-font">3</span><span class="math-font">V</span></span>
+                        <span class="denominator"><span class="math-font">S</span><sub>表</sub></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 3D 容器 -->
+<div id="canvas-container"></div>
+
+<script>
+    // === 全局变量 ===
+    let scene, camera, renderer, controls;
+    let labelElements = {};
+    let sceneObjects = []; 
+    let currentStep = 1;
+
+    // === 几何计算 ===
+    function triangleArea(v1, v2, v3) {
+        const edge1 = new THREE.Vector3().subVectors(v2, v1);
+        const edge2 = new THREE.Vector3().subVectors(v3, v1);
+        return new THREE.Vector3().crossVectors(edge1, edge2).length() * 0.5;
+    }
+    function tetraVolume(v1, v2, v3, v4) {
+        const edge1 = new THREE.Vector3().subVectors(v2, v1);
+        const edge2 = new THREE.Vector3().subVectors(v3, v1);
+        const edge3 = new THREE.Vector3().subVectors(v4, v1);
+        return Math.abs(new THREE.Vector3().crossVectors(edge1, edge2).dot(edge3)) / 6.0;
+    }
+
+    // === 几何定义 (一般三棱锥) ===
+    const A = new THREE.Vector3(-8, 0, 5);
+    const B = new THREE.Vector3(9, 0, 4);
+    const C = new THREE.Vector3(-2, 0, -9);
+    const P = new THREE.Vector3(3, 14, -4); // 偏移P点，使垂足不重合
+
+    // 计算内心 O 和半径 r
+    const S_ABC = triangleArea(A, B, C);
+    const S_PAB = triangleArea(P, A, B);
+    const S_PBC = triangleArea(P, B, C);
+    const S_PCA = triangleArea(P, C, A);
+    const S_total = S_ABC + S_PAB + S_PBC + S_PCA;
+    const V_total = tetraVolume(A, B, C, P);
+    
+    const r_val = (3 * V_total) / S_total;
+    
+    const O = new THREE.Vector3()
+        .addScaledVector(P, S_ABC)
+        .addScaledVector(A, S_PBC)
+        .addScaledVector(B, S_PCA)
+        .addScaledVector(C, S_PAB)
+        .divideScalar(S_total);
+
+    // 计算切点位置 (仅用于画线，不显示点)
+    const H_pt = new THREE.Vector3(O.x, 0, O.z);
+
+    function init() {
+        const container = document.getElementById('canvas-container');
+        
+        // 1. 场景
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xffffff);
+
+        // 2. 相机
+        camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+        camera.position.set(25, 18, 35);
+        camera.lookAt(0, 5, 0);
+
+        // 3. 渲染器
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(renderer.domElement);
+
+        // 4. 控制器 (鼠标控制)
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.autoRotate = false;
+
+        // 5. 灯光
+        const ambLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambLight);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(10, 20, 20);
+        scene.add(dirLight);
+        const backLight = new THREE.DirectionalLight(0xffffff, 0.4);
+        backLight.position.set(-10, 5, -10);
+        scene.add(backLight);
+
+        // === 材质 ===
+        
+        // 1. 浅黑色实线 (外部棱)
+        const matEdge = new THREE.LineBasicMaterial({ color: 0x444444, linewidth: 2 });
+        
+        // 2. 高亮红虚线 (穿透球体，加粗)
+        const matRedDash = new THREE.LineDashedMaterial({ 
+            color: 0xff0000, 
+            dashSize: 0.6, gapSize: 0.3, 
+            linewidth: 4, // 加粗
+            depthTest: false // 关键：穿透遮挡
+        });
+        
+        // 3. 高亮红实线 (半径 - 穿透球体)
+        const matRedSolid = new THREE.LineBasicMaterial({ 
+            color: 0xff0000, 
+            linewidth: 3,
+            depthTest: false // 关键：穿透遮挡
+        });
+
+        // 4. 浅蓝色面 P-ABC
+        const matLightBlueFace = new THREE.MeshPhongMaterial({ 
+            color: 0x87CEEB, 
+            transparent: true, opacity: 0.1, 
+            side: THREE.DoubleSide, depthWrite: false 
+        });
+
+        // 5. 浅紫色面 O-ABC
+        const matLightPurpleFace = new THREE.MeshBasicMaterial({ 
+            color: 0xD8BFD8, 
+            transparent: true, opacity: 0.4, 
+            side: THREE.DoubleSide, depthWrite: false 
+        });
+
+        // 6. 内切球 (使用 MeshBasicMaterial 确保颜色绝对均匀，进一步加深暗金色)
+        const matSphere = new THREE.MeshBasicMaterial({ 
+            color: 0x8b6508, // 进一步加深的暗金色
+            transparent: true, 
+            opacity: 0.7, // 增加不透明度，使颜色更深实
+            depthWrite: true // 开启深度写入，遮挡背面线条
+        });
+
+        // === Step 1: 骨架、面、球 ===
+        // 棱线
+        [ [A,B], [B,C], [C,A], [A,P], [B,P], [C,P] ].forEach(pts => {
+            createLine(pts, matEdge, 1);
+        });
+        
+        // 外表面
+        const geomFace = new THREE.BufferGeometry().setFromPoints([A,B,P, B,C,P, C,A,P, A,C,B]);
+        geomFace.computeVertexNormals();
+        const meshFace = new THREE.Mesh(geomFace, matLightBlueFace);
+        scene.add(meshFace);
+        sceneObjects.push({ mesh: meshFace, minStep: 1 });
+
+        // 内切球
+        const sphere = new THREE.Mesh(new THREE.SphereGeometry(r_val, 64, 64), matSphere);
+        sphere.position.copy(O);
+        scene.add(sphere);
+        sceneObjects.push({ mesh: sphere, minStep: 1 });
+
+        // === Step 2: 内部连线 (红虚线 - 穿透) ===
+        [A, B, C, P].forEach(pt => {
+            createLine([O, pt], matRedDash, 2, true, 999);
+        });
+        
+        // 球心点 O (红点 - 穿透)
+        const dotO = new THREE.Mesh(new THREE.SphereGeometry(0.2), new THREE.MeshBasicMaterial({color:0xff0000, depthTest:false}));
+        dotO.position.copy(O);
+        dotO.renderOrder = 999;
+        scene.add(dotO);
+        sceneObjects.push({ mesh: dotO, minStep: 2 });
+
+        // === Step 3: 半径 r (增加底面红色实心切点) ===
+        // 半径线 OH (红实线 - 穿透)
+        createLine([O, H_pt], matRedSolid, 3, false, 999);
+
+        // 底面红色实心切点 (第3步显示)
+        const tangentPtGeom = new THREE.SphereGeometry(0.2, 16, 16);
+        const tangentPtMat = new THREE.MeshBasicMaterial({ color: 0xff0000, depthTest: false });
+        const tangentPt = new THREE.Mesh(tangentPtGeom, tangentPtMat);
+        tangentPt.position.copy(H_pt);
+        tangentPt.renderOrder = 1000;
+        scene.add(tangentPt);
+        sceneObjects.push({ mesh: tangentPt, minStep: 3 });
+
+        // === Step 4: 浅紫面 O-ABC ===
+        const geomSmallPyramid = new THREE.BufferGeometry().setFromPoints([O,A,B, O,B,C, O,C,A, A,C,B]);
+        const meshSmallPyramid = new THREE.Mesh(geomSmallPyramid, matLightPurpleFace);
+        scene.add(meshSmallPyramid);
+        sceneObjects.push({ mesh: meshSmallPyramid, minStep: 4 });
+
+        // === 标签 ===
+        createLabel("P", P, 1);
+        createLabel("A", A, 1);
+        createLabel("B", B, 1);
+        createLabel("C", C, 1);
+        createLabel("O", O, 2);
+        // H 标签已移除
+
+        animate();
+        updateStep(1); 
+    }
+
+    // 创建线条辅助
+    function createLine(points, mat, step, isDashed = false, order = 0) {
+        const geom = new THREE.BufferGeometry().setFromPoints(points);
+        const line = new THREE.Line(geom, mat);
+        if(isDashed) line.computeLineDistances();
+        if(order > 0) line.renderOrder = order; // 确保在球体之上渲染
+        scene.add(line);
+        sceneObjects.push({ mesh: line, minStep: step });
+    }
+
+    // 创建标签
+    function createLabel(text, pos, minStep) {
+        const div = document.createElement('div');
+        div.className = 'label';
+        div.innerHTML = `<span class="math-font">${text}</span>`;
+        document.getElementById('canvas-container').appendChild(div);
+        labelElements[text] = { el: div, pos: pos, minStep: minStep };
+    }
+
+    // === 交互逻辑 ===
+    window.updateStep = function(step) {
+        currentStep = step;
+        
+        document.querySelectorAll('.accordion-item').forEach((item, idx) => {
+            if (idx + 1 === step) item.classList.add('active');
+            else item.classList.remove('active');
+        });
+
+        sceneObjects.forEach(obj => {
+            obj.mesh.visible = (obj.minStep <= step);
+        });
+    };
+
+    function animate() {
+        requestAnimationFrame(animate);
+        controls.update(); 
+        
+        for (let key in labelElements) {
+            const item = labelElements[key];
+            const isVisible = (currentStep >= item.minStep);
+            
+            if (!isVisible) {
+                item.el.style.display = 'none';
+                continue;
+            }
+
+            const tempV = item.pos.clone();
+            tempV.project(camera);
+
+            if (Math.abs(tempV.z) > 1) {
+                item.el.style.display = 'none';
+            } else {
+                item.el.style.display = 'block';
+                const x = (tempV.x * 0.5 + 0.5) * renderer.domElement.clientWidth;
+                const y = (-(tempV.y) * 0.5 + 0.5) * renderer.domElement.clientHeight;
+                item.el.style.left = x + 'px';
+                item.el.style.top = y + 'px';
+            }
+        }
+        renderer.render(scene, camera);
+    }
+
+    window.addEventListener('resize', () => {
+        const container = document.getElementById('canvas-container');
+        camera.aspect = container.clientWidth / container.clientHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(container.clientWidth, container.clientHeight);
+    });
+
+    window.onload = init;
+
+</script>
+</body>
+</html>

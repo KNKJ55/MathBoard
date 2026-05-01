@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>斗笠模型交互演示</title>
+    <style>
+        :root {
+            --primary-blue: #2c3e50;
+            --active-blue: #e67e22; /* 斗笠模型改为暖色调主题 */
+            --light-bg: #fdf5e6;
+            --text-color: #333;
+            --border-color: #bdc3c7;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            overflow: hidden;
+            display: flex;
+            height: 100vh;
+        }
+
+        /* --- 左侧教学侧边栏 --- */
+        #sidebar {
+            width: 440px;
+            background-color: #fffcf5; /* 暖色背景 */
+            border-right: 1px solid #e0d0b0;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+            z-index: 10;
+            overflow-y: auto;
+        }
+
+        .header {
+            background: var(--primary-blue);
+            color: white;
+            padding: 25px 20px 15px 20px;
+            text-align: center;
+        }
+        .header h2 { margin: 0; font-size: 32px; letter-spacing: 2px; }
+        .header h3 { 
+            margin: 10px 0 0; 
+            font-size: 18px; 
+            opacity: 0.9; 
+            font-weight: normal; 
+            background: rgba(255,255,255,0.1);
+            padding: 6px 12px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+        .controls-hint {
+            font-size: 14px;
+            color: rgba(255,255,255,0.7);
+            margin-top: 15px;
+            font-style: italic;
+        }
+
+        .formula-card {
+            background: white;
+            margin: 20px;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 6px solid var(--active-blue);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        }
+        .formula-card h4 { 
+            margin-top: 0; 
+            color: var(--primary-blue); 
+            font-size: 22px; 
+            margin-bottom: 15px;
+        }
+
+        /* 手风琴样式 */
+        .accordion {
+            flex: 1;
+            padding: 10px;
+        }
+        .step-item {
+            margin-bottom: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: white;
+            overflow: hidden;
+        }
+        .step-header {
+            padding: 18px 20px;
+            background: #fff;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.3s;
+        }
+        .step-header:hover { background: #fff8f0; }
+        .step-header.active {
+            background: var(--active-blue);
+            color: white;
+        }
+        .step-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+            padding: 0 20px;
+            background: #fafafa;
+            font-size: 18px;
+            line-height: 1.6;
+            color: #444;
+        }
+        .step-content.open {
+            max-height: 600px;
+            padding: 20px;
+            border-top: 1px solid #eee;
+        }
+        
+        .step-content ul { padding-left: 25px; margin: 10px 0; }
+        .step-content li { margin-bottom: 8px; }
+
+        /* --- CSS 数学公式样式 --- */
+        .math-block {
+            font-family: "Times New Roman", serif;
+            margin: 15px 0;
+            background: #fff;
+            padding: 12px;
+            border-radius: 4px;
+            text-align: center;
+            font-size: 1.4em;
+        }
+        i { font-family: "Times New Roman", serif; font-style: italic; }
+        .fraction {
+            display: inline-block;
+            vertical-align: middle;
+            text-align: center;
+            margin: 0 5px;
+            font-size: 0.9em;
+        }
+        .num { border-bottom: 1px solid black; display: block; padding: 0 4px; }
+        .den { display: block; padding: 0 4px; }
+        
+        /* --- 右侧 3D 画布 --- */
+        #canvas-container {
+            flex: 1;
+            position: relative;
+            background: #ffffff;
+        }
+        #webgl-canvas { width: 100%; height: 100%; outline: none; }
+
+        /* --- 底部控制栏 --- */
+        #controls-bar {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 12px 25px;
+            border-radius: 40px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s;
+            font-size: 16px;
+        }
+        #controls-bar.visible { opacity: 1; pointer-events: auto; }
+        
+        button {
+            background: var(--active-blue);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.2s;
+            font-weight: bold;
+        }
+        button:hover { background: #d35400; }
+        
+        .slider-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 14px;
+            color: #555;
+            font-weight: bold;
+        }
+        input[type=range] { width: 120px; }
+        
+        .color-box { display: inline-block; width: 14px; height: 14px; margin-right: 8px; vertical-align: middle; border-radius: 2px; }
+    </style>
+</head>
+<body>
+
+    <!-- 左侧侧边栏 -->
+    <div id="sidebar">
+        <div class="header">
+            <h2>斗笠模型</h2>
+            <h3>范围：正棱锥 / 圆锥外接球</h3>
+            <div class="controls-hint">提示：支持鼠标右键平移、滑轮放缩、左键旋转</div>
+        </div>
+
+        <div class="formula-card">
+            <h4>核心公式</h4>
+            <div class="math-block">
+                <i>R</i> = <div class="fraction"><div class="num"><i>r</i><sup>2</sup> + <i>h</i><sup>2</sup></div><div class="den">2<i>h</i></div></div>
+            </div>
+            <div style="text-align:center; font-size:14px; color:#666; margin-top:5px;">
+                (<i>r</i>: 底面半径, <i>h</i>: 高)
+            </div>
+        </div>
+
+        <div class="accordion">
+            <!-- 步骤 1 -->
+            <div class="step-item">
+                <div class="step-header active" onclick="setStep(0)">
+                    <span>1. 模型认知</span>
+                    <span>▼</span>
+                </div>
+                <div class="step-content open" id="content-0">
+                    <p><strong>适用条件：</strong>正棱锥或顶点投影在底面外心的棱锥（如圆锥）。</p>
+                    <p>以正三棱锥 <i>P-ABC</i> 为例：</p>
+                    <ul>
+                        <li><span class="color-box" style="background:#f39c12"></span>侧面为等腰三角形</li>
+                        <li>顶点 <i>P</i> 在底面的投影为底面中心 <i>O</i><sub>1</sub></li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- 步骤 2 -->
+            <div class="step-item">
+                <div class="step-header" onclick="setStep(1)">
+                    <span>2. 找高与半径</span>
+                    <span>▼</span>
+                </div>
+                <div class="step-content" id="content-1">
+                    <p>连接顶点 <i>P</i> 与底面中心 <i>O</i><sub>1</sub>，该线段即为高 <i>h</i>。</p>
+                    <p>连接 <i>O</i><sub>1</sub> 与底面任一顶点（如 <i>A</i>），即为底面半径 <i>r</i>。</p>
+                    <p><strong>关键观察：</strong></p>
+                    <p><span class="color-box" style="background:#2ecc71"></span>绿色三角形 △<i>PO</i><sub>1</sub><i>A</i> 为直角三角形。</p>
+                </div>
+            </div>
+
+            <!-- 步骤 3 -->
+            <div class="step-item">
+                <div class="step-header" onclick="setStep(2)">
+                    <span>3. 定球心与外接球</span>
+                    <span>▼</span>
+                </div>
+                <div class="step-content" id="content-2">
+                    <p><strong>球心位置：</strong>外接球球心 <i>O</i> 必在高 <i>PO</i><sub>1</sub> 所在的直线上。</p>
+                    <p>设外接球半径为 <i>R</i>，则：</p>
+                    <div class="math-block">
+                        <i>OA</i> = <i>OP</i> = <i>R</i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 步骤 4 -->
+            <div class="step-item">
+                <div class="step-header" onclick="setStep(3)">
+                    <span>4. 勾股定理推导</span>
+                    <span>▼</span>
+                </div>
+                <div class="step-content" id="content-3">
+                    <p>在 <span class="color-box" style="background:#9b59b6"></span>紫色直角三角形 △<i>OO</i><sub>1</sub><i>A</i> 中利用勾股定理：</p>
+                    <div class="math-block">
+                        <i>OO</i><sub>1</sub><sup>2</sup> + <i>O</i><sub>1</sub><i>A</i><sup>2</sup> = <i>OA</i><sup>2</sup>
+                    </div>
+                    <p>即：</p>
+                    <div class="math-block">
+                        (<i>h</i> - <i>R</i>)<sup>2</sup> + <i>r</i><sup>2</sup> = <i>R</i><sup>2</sup>
+                    </div>
+                    <p>展开化简得：</p>
+                    <div class="math-block">
+                        <i>h</i><sup>2</sup> - 2<i>hR</i> + <i>R</i><sup>2</sup> + <i>r</i><sup>2</sup> = <i>R</i><sup>2</sup>
+                    </div>
+                    <p>解得：</p>
+                    <div class="math-block">
+                        <i>R</i> = <div class="fraction"><div class="num"><i>h</i><sup>2</sup> + <i>r</i><sup>2</sup></div><div class="den">2<i>h</i></div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 右侧 Canvas -->
+    <div id="canvas-container">
+        <div id="controls-bar">
+            <button id="btn-rotate" onclick="toggleRotation()">▶ 自动旋转</button>
+            <div class="slider-group">
+                <span>速度</span>
+                <input type="range" id="speed-slider" min="1" max="10" value="2">
+            </div>
+            <button onclick="resetView()">⟲ 复位视角</button>
+        </div>
+    </div>
+
+    <!-- Import Map -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // --- 全局变量 ---
+        let scene, camera, renderer, controls;
+        let pyramidGroup, helperGroup, sphereGroup, derivationGroup;
+        let isRotating = false;
+        let rotationSpeed = 0.005;
+        let currentStep = 0;
+
+        // 几何参数
+        const r = 4; // 底面半径
+        const h = 6; // 高
+        // 计算球半径 R: (h^2 + r^2) / 2h = (36 + 16) / 12 = 52/12 = 4.333
+        const R = (h*h + r*r) / (2*h);
+        
+        // 坐标定义 (中心 O1 在原点 (0,0,0))
+        // P 在 (0, h, 0)
+        // A 在 (r, 0, 0)
+        const vO1 = new THREE.Vector3(0, 0, 0);
+        const vP = new THREE.Vector3(0, h, 0);
+        const vA = new THREE.Vector3(r, 0, 0);
+        const vB = new THREE.Vector3(r * Math.cos(2*Math.PI/3), 0, r * Math.sin(2*Math.PI/3));
+        const vC = new THREE.Vector3(r * Math.cos(4*Math.PI/3), 0, r * Math.sin(4*Math.PI/3));
+        
+        // 球心坐标: y = h - R
+        // 因为 O1 在 0, P 在 h. 球心距离 P 是 R. 所以 O.y = h - R.
+        const vCenter = new THREE.Vector3(0, h - R, 0);
+
+        init();
+        animate();
+
+        function init() {
+            const container = document.getElementById('canvas-container');
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xffffff);
+
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+            camera.position.set(12, 10, 16);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.target.set(0, h/3, 0); // 视角中心稍微上移
+
+            // 灯光
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambientLight);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(10, 20, 10);
+            scene.add(dirLight);
+
+            // 创建各部分
+            createPyramid();      // 步骤 0
+            createHelperLines();  // 步骤 1 (高、半径、绿色三角形)
+            createSphereInfo();   // 步骤 2 (球、球心)
+            createDerivation();   // 步骤 3 (紫色三角形)
+
+            window.addEventListener('resize', onWindowResize);
+            updateSceneByStep(0);
+        }
+
+        function createPyramid() {
+            pyramidGroup = new THREE.Group();
+
+            // 1. 棱锥面
+            const geom = new THREE.BufferGeometry().setFromPoints([
+                vP, vA, vB,
+                vP, vB, vC,
+                vP, vC, vA,
+                vA, vC, vB // 底面
+            ]);
+            geom.computeVertexNormals();
+            
+            // 斗笠模型通常用暖黄色/橙色
+            const mat = new THREE.MeshLambertMaterial({ 
+                color: 0xf39c12, 
+                transparent: true, 
+                opacity: 0.25, 
+                side: THREE.DoubleSide,
+                depthWrite: false 
+            });
+            const mesh = new THREE.Mesh(geom, mat);
+            pyramidGroup.add(mesh);
+
+            // 2. 棱线
+            const edges = [
+                [vP, vA], [vP, vB], [vP, vC],
+                [vA, vB], [vB, vC], [vC, vA]
+            ];
+            edges.forEach(pair => addLine(pair[0], pair[1], 0x000000, pyramidGroup, false));
+
+            // 3. 底面外接圆 (虚线，暗示圆锥)
+            const curve = new THREE.EllipseCurve(0, 0, r, r, 0, 2*Math.PI, false, 0);
+            const points = curve.getPoints(64);
+            const circleGeo = new THREE.BufferGeometry().setFromPoints(points);
+            circleGeo.rotateX(-Math.PI/2);
+            const circleMat = new THREE.LineDashedMaterial({ color: 0xbdc3c7, dashSize: 0.3, gapSize: 0.2 });
+            const circle = new THREE.Line(circleGeo, circleMat);
+            circle.computeLineDistances();
+            pyramidGroup.add(circle);
+
+            // 标签
+            addLabel("P", vP);
+            addLabel("A", vA);
+            addLabel("B", vB);
+            addLabel("C", vC);
+            addLabel("O₁", vO1, 0, -0.5); // O1 往下一点
+
+            scene.add(pyramidGroup);
+        }
+
+        function createHelperLines() {
+            helperGroup = new THREE.Group();
+
+            // 1. 高 PO1 (虚线)
+            addLine(vP, vO1, 0x333333, helperGroup, true);
+            
+            // 2. 半径 O1A (虚线)
+            addLine(vO1, vA, 0x333333, helperGroup, true);
+
+            // 3. 绿色三角形 PO1A (填充)
+            const triGeom = new THREE.BufferGeometry().setFromPoints([vP, vO1, vA]);
+            const triMat = new THREE.MeshBasicMaterial({ 
+                color: 0x2ecc71, // 绿色
+                transparent: true, 
+                opacity: 0.4, 
+                side: THREE.DoubleSide,
+                depthWrite: false
+            });
+            const triMesh = new THREE.Mesh(triGeom, triMat);
+            helperGroup.add(triMesh);
+
+            // 标注 h 和 r
+            // h 标注在 PO1 中点
+            const midH = new THREE.Vector3().addVectors(vP, vO1).multiplyScalar(0.5);
+            addLabel("h", midH, -0.3, 0);
+
+            // r 标注在 O1A 中点
+            const midR = new THREE.Vector3().addVectors(vO1, vA).multiplyScalar(0.5);
+            addLabel("r", midR, 0, -0.3);
+
+            // 直角符号 at O1
+            const size = 0.3;
+            const rightAnglePoints = [
+                new THREE.Vector3(size, 0, 0),
+                new THREE.Vector3(size, size, 0),
+                new THREE.Vector3(0, size, 0)
+            ];
+            const raGeo = new THREE.BufferGeometry().setFromPoints(rightAnglePoints);
+            const raLine = new THREE.Line(raGeo, new THREE.LineBasicMaterial({color:0x333}));
+            helperGroup.add(raLine);
+
+            scene.add(helperGroup);
+        }
+
+        function createSphereInfo() {
+            sphereGroup = new THREE.Group();
+
+            // 1. 球体
+            const sphereGeo = new THREE.SphereGeometry(R, 64, 64);
+            const sphereMat = new THREE.MeshPhongMaterial({
+                color: 0xf1c40f, // 金黄色
+                transparent: true,
+                opacity: 0.15,
+                depthWrite: false,
+                side: THREE.DoubleSide
+            });
+            const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+            sphere.position.copy(vCenter);
+            sphereGroup.add(sphere);
+
+            // 2. 球心点 O
+            const centerPoint = new THREE.Mesh(
+                new THREE.SphereGeometry(0.12, 16, 16),
+                new THREE.MeshBasicMaterial({color: 0xe74c3c})
+            );
+            centerPoint.position.copy(vCenter);
+            sphereGroup.add(centerPoint);
+            addLabel("O", vCenter, 0.4, 0);
+
+            // 3. 连接 OP, OA (半径 R)
+            // OP 实际上在高上，已经在 HelperLine 里覆盖了，但为了强调 R，可以加粗或变色
+            // 这里画 OA (实线)
+            addLine(vCenter, vA, 0xe74c3c, sphereGroup, false);
+            
+            // 标注 R (在 OA 中点)
+            const midOA = new THREE.Vector3().addVectors(vCenter, vA).multiplyScalar(0.5);
+            addLabel("R", midOA, 0.2, 0.2);
+
+            scene.add(sphereGroup);
+        }
+
+        function createDerivation() {
+            derivationGroup = new THREE.Group();
+
+            // 紫色三角形 OO1A
+            const triGeom = new THREE.BufferGeometry().setFromPoints([vCenter, vO1, vA]);
+            const triMat = new THREE.MeshBasicMaterial({ 
+                color: 0x9b59b6, // 紫色
+                transparent: true, 
+                opacity: 0.5, 
+                side: THREE.DoubleSide,
+                depthWrite: false
+            });
+            const triMesh = new THREE.Mesh(triGeom, triMat);
+            derivationGroup.add(triMesh);
+
+            // 强调 OO1 线段 (h-R)
+            const lineOO1 = new THREE.Line(
+                new THREE.BufferGeometry().setFromPoints([vCenter, vO1]),
+                new THREE.LineBasicMaterial({ color: 0x8e44ad, linewidth: 3 })
+            );
+            derivationGroup.add(lineOO1);
+            
+            // 标注 h-R
+            const midOO1 = new THREE.Vector3().addVectors(vCenter, vO1).multiplyScalar(0.5);
+            addLabel("h-R", midOO1, -0.6, 0); // 放在左侧
+
+            scene.add(derivationGroup);
+        }
+
+        function addLine(v1, v2, color, parent, dashed) {
+            const points = [v1, v2];
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            let material;
+            if (dashed) {
+                material = new THREE.LineDashedMaterial({ color: color, dashSize: 0.3, gapSize: 0.2, opacity: 0.7, transparent: true });
+            } else {
+                material = new THREE.LineBasicMaterial({ color: color, linewidth: 2 });
+            }
+            const line = new THREE.Line(geometry, material);
+            if (dashed) line.computeLineDistances();
+            parent.add(line);
+        }
+
+        function addLabel(text, position, offsetX = 0, offsetY = 0) {
+            const canvas = document.createElement('canvas');
+            const size = 128; 
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.clearRect(0, 0, size, size);
+            ctx.font = 'italic bold 56px "Times New Roman", serif';
+            ctx.fillStyle = '#000000'; 
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, size/2, size/2);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            const spriteMaterial = new THREE.SpriteMaterial({ 
+                map: texture,
+                transparent: true,
+                depthTest: false 
+            });
+            const sprite = new THREE.Sprite(spriteMaterial);
+            
+            sprite.position.copy(position);
+            sprite.position.x += offsetX;
+            sprite.position.y += offsetY;
+            sprite.scale.set(1.5, 1.5, 1.5);
+            
+            // 将标签添加到合适的组，或者直接添加到场景，这里为了简化直接加到场景（但要控制可见性有点麻烦），
+            // 更好的方式是加到对应的 Group。
+            // 临时判断一下逻辑：
+            if (text === "P" || text === "A" || text === "B" || text === "C" || text === "O₁") {
+                pyramidGroup.add(sprite);
+            } else if (text === "h" || text === "r") {
+                helperGroup.add(sprite);
+            } else if (text === "O" || text === "R") {
+                sphereGroup.add(sprite);
+            } else if (text === "h-R") {
+                derivationGroup.add(sprite);
+            }
+        }
+
+        // --- 逻辑控制 ---
+        window.setStep = function(stepIndex) {
+            currentStep = stepIndex;
+
+            // UI 更新
+            document.querySelectorAll('.step-header').forEach((el, idx) => {
+                if(idx === stepIndex) el.classList.add('active');
+                else el.classList.remove('active');
+            });
+            document.querySelectorAll('.step-content').forEach((el, idx) => {
+                if(idx === stepIndex) el.classList.add('open');
+                else el.classList.remove('open');
+            });
+
+            // 场景更新
+            updateSceneByStep(stepIndex);
+        }
+
+        function updateSceneByStep(step) {
+            // Step 0: Pyramid Only
+            // Step 1: + Helper (h, r, Green Tri)
+            // Step 2: + Sphere (O, R)
+            // Step 3: + Derivation (Purple Tri, math label)
+            
+            // 基础始终可见
+            pyramidGroup.visible = true;
+            
+            if (step >= 1) helperGroup.visible = true; else helperGroup.visible = false;
+            
+            if (step >= 2) {
+                sphereGroup.visible = true; 
+                toggleControls(true);
+            } else {
+                sphereGroup.visible = false;
+                toggleControls(false);
+            }
+
+            if (step >= 3) {
+                // 如果到了第4步，隐藏绿色三角形，显示紫色三角形，以便观察清晰
+                // 或者保留两者？为了清晰，我们隐藏 Step 1 的绿色填充，显示 Step 3 的紫色
+                // 这里选择叠加显示，但紫色层级更高
+                derivationGroup.visible = true;
+            } else {
+                derivationGroup.visible = false;
+            }
+        }
+
+        function toggleControls(show) {
+            const bar = document.getElementById('controls-bar');
+            if(show) bar.classList.add('visible');
+            else {
+                bar.classList.remove('visible');
+                if(isRotating) toggleRotation(); 
+            }
+        }
+
+        window.toggleRotation = function() {
+            isRotating = !isRotating;
+            document.getElementById('btn-rotate').innerHTML = isRotating ? "|| 暂停旋转" : "▶ 自动旋转";
+        }
+
+        window.resetView = function() {
+            controls.reset();
+            isRotating = false;
+            document.getElementById('btn-rotate').innerHTML = "▶ 自动旋转";
+        }
+
+        document.getElementById('speed-slider').addEventListener('input', (e) => {
+            rotationSpeed = e.target.value * 0.002;
+        });
+
+        function onWindowResize() {
+            camera.aspect = document.getElementById('canvas-container').clientWidth / document.getElementById('canvas-container').clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(document.getElementById('canvas-container').clientWidth, document.getElementById('canvas-container').clientHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            if (isRotating) {
+                scene.rotation.y += rotationSpeed;
+            }
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>

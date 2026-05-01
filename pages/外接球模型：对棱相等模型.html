@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>对棱相等模型交互演示</title>
+    <style>
+        :root {
+            --primary-blue: #2c3e50;
+            --active-blue: #3498db;
+            --light-bg: #ecf0f1;
+            --text-color: #333;
+            --border-color: #bdc3c7;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            overflow: hidden;
+            display: flex;
+            height: 100vh;
+        }
+
+        /* --- 左侧教学侧边栏 --- */
+        #sidebar {
+            width: 440px;
+            background-color: #f8f9fa;
+            border-right: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            z-index: 10;
+            overflow-y: auto;
+        }
+
+        .header {
+            background: var(--primary-blue);
+            color: white;
+            padding: 25px 20px 15px 20px;
+            text-align: center;
+        }
+        .header h2 { margin: 0; font-size: 32px; letter-spacing: 2px; }
+        .header h3 { 
+            margin: 10px 0 0; 
+            font-size: 18px; 
+            opacity: 0.9; 
+            font-weight: normal; 
+            background: rgba(255,255,255,0.1);
+            padding: 6px 12px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+        .controls-hint {
+            font-size: 14px;
+            color: rgba(255,255,255,0.7);
+            margin-top: 15px;
+            font-style: italic;
+        }
+
+        .formula-card {
+            background: white;
+            margin: 20px;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 6px solid var(--active-blue);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        }
+        .formula-card h4 { 
+            margin-top: 0; 
+            color: var(--primary-blue); 
+            font-size: 22px; 
+            margin-bottom: 15px;
+        }
+
+        /* 手风琴样式 */
+        .accordion {
+            flex: 1;
+            padding: 10px;
+        }
+        .step-item {
+            margin-bottom: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: white;
+            overflow: hidden;
+        }
+        .step-header {
+            padding: 18px 20px;
+            background: #fff;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.3s;
+        }
+        .step-header:hover { background: #f1f8ff; }
+        .step-header.active {
+            background: var(--active-blue);
+            color: white;
+        }
+        .step-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+            padding: 0 20px;
+            background: #fafafa;
+            font-size: 18px;
+            line-height: 1.6;
+            color: #444;
+        }
+        .step-content.open {
+            max-height: 600px;
+            padding: 20px;
+            border-top: 1px solid #eee;
+        }
+        
+        .step-content ul {
+            padding-left: 25px;
+            margin: 10px 0;
+        }
+        .step-content li {
+            margin-bottom: 8px;
+        }
+
+        /* --- CSS 数学公式样式 --- */
+        .math-block {
+            font-family: "Times New Roman", serif;
+            margin: 15px 0;
+            background: #fff;
+            padding: 12px;
+            border-radius: 4px;
+            text-align: center;
+            font-size: 1.3em;
+        }
+        i { font-family: "Times New Roman", serif; font-style: italic; }
+        .fraction {
+            display: inline-block;
+            vertical-align: middle;
+            text-align: center;
+            margin: 0 5px;
+            font-size: 0.9em;
+        }
+        .num { border-bottom: 1px solid black; display: block; padding: 0 4px; }
+        .den { display: block; padding: 0 4px; }
+        
+        .sqrt {
+            display: inline-block;
+            border-top: 1px solid black;
+            padding-top: 1px;
+            margin-left: 8px;
+            position: relative;
+        }
+        .sqrt::before {
+            content: "√";
+            position: absolute;
+            left: -12px;
+            bottom: 4px;
+            font-size: 1.1em;
+        }
+
+        /* --- 右侧 3D 画布 --- */
+        #canvas-container {
+            flex: 1;
+            position: relative;
+            background: #ffffff;
+        }
+        #webgl-canvas { width: 100%; height: 100%; outline: none; }
+
+        /* --- 底部控制栏 --- */
+        #controls-bar {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 12px 25px;
+            border-radius: 40px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s;
+            font-size: 16px;
+        }
+        #controls-bar.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        button {
+            background: var(--active-blue);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.2s;
+            font-weight: bold;
+        }
+        button:hover { background: #2980b9; }
+        .slider-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 14px;
+            color: #555;
+            font-weight: bold;
+        }
+        input[type=range] { width: 120px; }
+        
+        .color-box { display: inline-block; width: 14px; height: 14px; margin-right: 8px; vertical-align: middle; border-radius: 2px; }
+    </style>
+</head>
+<body>
+
+    <!-- 左侧侧边栏 -->
+    <div id="sidebar">
+        <div class="header">
+            <h2>对棱相等模型</h2>
+            <h3>范围：对棱相等的三棱锥</h3>
+            <div class="controls-hint">提示：支持鼠标右键平移、滑轮放缩、左键旋转</div>
+        </div>
+
+        <div class="formula-card">
+            <h4>核心公式</h4>
+            <div class="math-block">
+                <i>V</i><sub><i>A-BCD</i></sub> = <div class="fraction"><div class="num">1</div><div class="den">3</div></div><i>abc</i> - 4 × <div class="fraction"><div class="num">1</div><div class="den">6</div></div><i>abc</i> = <div class="fraction"><div class="num">1</div><div class="den">3</div></div><i>abc</i>
+            </div>
+            <div class="math-block" style="font-size: 1.5em;">
+                <i>R</i> = <span class="sqrt"><div class="fraction" style="margin-top:2px"><div class="num"><i>&lambda;</i><sup>2</sup> + <i>&mu;</i><sup>2</sup> + <i>k</i><sup>2</sup></div><div class="den">8</div></div></span>
+            </div>
+        </div>
+
+        <div class="accordion">
+            <!-- 步骤 1 -->
+            <div class="step-item">
+                <div class="step-header active" onclick="setStep(0)">
+                    <span>1. 模型认知</span>
+                    <span>▼</span>
+                </div>
+                <div class="step-content open" id="content-0">
+                    <p>三棱锥 <i>A-BCD</i>（等腰四面体），三组对棱长度分别相等：</p>
+                    <ul>
+                        <li><span class="color-box" style="background:red"></span><i>AB</i> = <i>CD</i> = <i>k</i></li>
+                        <li><span class="color-box" style="background:green"></span><i>AC</i> = <i>BD</i> = <i>&mu;</i></li>
+                        <li><span class="color-box" style="background:blue"></span><i>AD</i> = <i>BC</i> = <i>&lambda;</i></li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- 步骤 2 -->
+            <div class="step-item">
+                <div class="step-header" onclick="setStep(1)">
+                    <span>2. 构造长方体 (补形)</span>
+                    <span>▼</span>
+                </div>
+                <div class="step-content" id="content-1">
+                    <p><strong>推导过程：</strong>通过对棱相等，可以将该四面体补全为一个长方体。</p>
+                    <p>设长方体的长宽高分别为 <i>a, b, c</i>。</p>
+                    <p>四面体的每一条棱，恰好是长方体各个面的<strong>面对角线</strong>。</p>
+                    <div class="math-block" style="font-size: 1.1em; text-align: left; padding-left: 40px;">
+                        <i>a</i><sup>2</sup> + <i>b</i><sup>2</sup> = <i>&lambda;</i><sup>2</sup> (底面)<br>
+                        <i>b</i><sup>2</sup> + <i>c</i><sup>2</sup> = <i>&mu;</i><sup>2</sup> (侧面)<br>
+                        <i>c</i><sup>2</sup> + <i>a</i><sup>2</sup> = <i>k</i><sup>2</sup> (前面)
+                    </div>
+                </div>
+            </div>
+
+            <!-- 步骤 3 -->
+            <div class="step-item">
+                <div class="step-header" onclick="setStep(2)">
+                    <span>3. 定球心与生成外接球</span>
+                    <span>▼</span>
+                </div>
+                <div class="step-content" id="content-2">
+                    <p><strong>结论：</strong>补全的长方体的<strong>体对角线</strong>即为外接球的直径。</p>
+                    <p>球心 <i>O</i> 为长方体的中心。</p>
+                    <p>辅助圆：分别以 <i>AC</i> 和 <i>BD</i> 为直径的圆（即长方体上下面的外接圆）。</p>
+                    <p>点击下方控制栏的“自动旋转”观察球体与四面体的关系。</p>
+                </div>
+            </div>
+
+            <!-- 步骤 4 -->
+            <div class="step-item">
+                <div class="step-header" onclick="setStep(3)">
+                    <span>4. 半径公式推导</span>
+                    <span>▼</span>
+                </div>
+                <div class="step-content" id="content-3">
+                    <p>长方体体对角线长为 2<i>R</i>。</p>
+                    <div class="math-block">
+                        (2<i>R</i>)<sup>2</sup> = <i>a</i><sup>2</sup> + <i>b</i><sup>2</sup> + <i>c</i><sup>2</sup>
+                    </div>
+                    <p>将步骤2中的三个方程相加除以2：</p>
+                    <div class="math-block">
+                        <i>a</i><sup>2</sup>+<i>b</i><sup>2</sup>+<i>c</i><sup>2</sup> = <div class="fraction"><div class="num"><i>&lambda;</i><sup>2</sup>+<i>&mu;</i><sup>2</sup>+<i>k</i><sup>2</sup></div><div class="den">2</div></div>
+                    </div>
+                    <p>代入解得半径公式：</p>
+                    <div class="math-block">
+                        <i>R</i> = <span class="sqrt"><div class="fraction"><div class="num"><i>&lambda;</i><sup>2</sup> + <i>&mu;</i><sup>2</sup> + <i>k</i><sup>2</sup></div><div class="den">8</div></div></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 右侧 Canvas -->
+    <div id="canvas-container">
+        <div id="controls-bar">
+            <button id="btn-rotate" onclick="toggleRotation()">▶ 自动旋转</button>
+            <div class="slider-group">
+                <span>速度</span>
+                <input type="range" id="speed-slider" min="1" max="10" value="2">
+            </div>
+            <button onclick="resetView()">⟲ 复位视角</button>
+        </div>
+    </div>
+
+    <!-- Import Map for Three.js -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // --- 全局变量 ---
+        let scene, camera, renderer, controls;
+        let tetrahedronGroup, cuboidGroup, sphereGroup;
+        let isRotating = false;
+        let rotationSpeed = 0.005;
+        let currentStep = 0;
+
+        // 长方体尺寸
+        const size = { x: 4, y: 5, z: 3 }; 
+        
+        const vertices = {
+            A: new THREE.Vector3(size.x/2, size.y/2, size.z/2),
+            B: new THREE.Vector3(-size.x/2, -size.y/2, size.z/2),
+            C: new THREE.Vector3(-size.x/2, size.y/2, -size.z/2),
+            D: new THREE.Vector3(size.x/2, -size.y/2, -size.z/2)
+        };
+
+        init();
+        animate();
+
+        function init() {
+            const container = document.getElementById('canvas-container');
+
+            // 1. Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xffffff);
+
+            // 2. Camera
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+            camera.position.set(10, 8, 12);
+
+            // 3. Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+
+            // 4. Controls
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+
+            // 5. Lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(5, 10, 7);
+            scene.add(dirLight);
+
+            // --- 创建几何体 ---
+            createTetrahedron();
+            createCuboid();
+            createSphere();
+
+            // --- 窗口调整 ---
+            window.addEventListener('resize', onWindowResize);
+
+            // --- 初始状态 ---
+            updateSceneByStep(0);
+        }
+
+        function createTetrahedron() {
+            tetrahedronGroup = new THREE.Group();
+
+            // 1. 面 (Faces)
+            const geom = new THREE.BufferGeometry().setFromPoints([
+                vertices.A, vertices.B, vertices.C,
+                vertices.A, vertices.C, vertices.D,
+                vertices.A, vertices.D, vertices.B,
+                vertices.B, vertices.D, vertices.C
+            ]);
+            geom.computeVertexNormals();
+            
+            // 修复遮挡问题的关键：depthWrite: false
+            const faceMaterial = new THREE.MeshLambertMaterial({ 
+                color: 0x3498db, 
+                transparent: true, 
+                opacity: 0.15,
+                side: THREE.DoubleSide,
+                depthWrite: false // 允许背后的物体（如内部虚线）被绘制
+            });
+            const mesh = new THREE.Mesh(geom, faceMaterial);
+            tetrahedronGroup.add(mesh);
+
+            // 2. 棱 (Edges)
+            addLine(vertices.A, vertices.B, 0xff0000, tetrahedronGroup);
+            addLine(vertices.C, vertices.D, 0xff0000, tetrahedronGroup);
+            
+            addLine(vertices.A, vertices.C, 0x00aa00, tetrahedronGroup);
+            addLine(vertices.B, vertices.D, 0x00aa00, tetrahedronGroup);
+
+            addLine(vertices.A, vertices.D, 0x0000ff, tetrahedronGroup);
+            addLine(vertices.B, vertices.C, 0x0000ff, tetrahedronGroup);
+
+            // 3. 标签
+            addLabelSprite("A", vertices.A);
+            addLabelSprite("B", vertices.B);
+            addLabelSprite("C", vertices.C);
+            addLabelSprite("D", vertices.D);
+
+            scene.add(tetrahedronGroup);
+        }
+
+        function addLine(v1, v2, color, parent) {
+            const points = [v1, v2];
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const material = new THREE.LineBasicMaterial({ color: color, linewidth: 3 });
+            const line = new THREE.Line(geometry, material);
+            parent.add(line);
+        }
+
+        function createCuboid() {
+            cuboidGroup = new THREE.Group();
+            
+            const geometry = new THREE.BoxGeometry(size.x, size.y, size.z);
+            const edges = new THREE.EdgesGeometry(geometry);
+            
+            // 虚线颜色加深，透明度提高
+            const lineMaterial = new THREE.LineDashedMaterial({ 
+                color: 0x555555, // 加深颜色
+                dashSize: 0.2, 
+                gapSize: 0.1,
+                opacity: 0.8, // 提高可见度
+                transparent: true
+            });
+            
+            const lines = new THREE.LineSegments(edges, lineMaterial);
+            lines.computeLineDistances();
+            cuboidGroup.add(lines);
+
+            scene.add(cuboidGroup);
+        }
+
+        function createSphere() {
+            sphereGroup = new THREE.Group();
+
+            // 1. 外接球体
+            const radius = Math.sqrt(size.x**2 + size.y**2 + size.z**2) / 2;
+            
+            const geometry = new THREE.SphereGeometry(radius, 32, 32);
+            const material = new THREE.MeshPhongMaterial({
+                color: 0xffd700, 
+                transparent: true,
+                opacity: 0.2,
+                depthWrite: false, // 同样防止遮挡内部
+                side: THREE.DoubleSide
+            });
+            const sphere = new THREE.Mesh(geometry, material);
+            sphereGroup.add(sphere);
+
+            // 2. 球心 O
+            const centerGeo = new THREE.SphereGeometry(0.08, 16, 16);
+            const centerMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+            const center = new THREE.Mesh(centerGeo, centerMat);
+            sphereGroup.add(center);
+            
+            addLabelSprite("O", new THREE.Vector3(0,0,0), sphereGroup);
+
+            // 3. 直径 (体对角线)
+            const diameterPoints = [
+                 new THREE.Vector3(-size.x/2, -size.y/2, -size.z/2),
+                 new THREE.Vector3(size.x/2, size.y/2, size.z/2)
+            ];
+            const diaGeo = new THREE.BufferGeometry().setFromPoints(diameterPoints);
+            const diaMat = new THREE.LineDashedMaterial({ color: 0xff0000, dashSize: 0.4, gapSize: 0.2, linewidth: 2 });
+            const diaLine = new THREE.Line(diaGeo, diaMat);
+            diaLine.computeLineDistances();
+            sphereGroup.add(diaLine);
+
+            // 4. 辅助圆
+            const rCircle = Math.sqrt( (size.x/2)**2 + (size.z/2)**2 );
+            
+            const curveAC = new THREE.EllipseCurve(0, 0, rCircle, rCircle, 0, 2 * Math.PI, false, 0);
+            const ptsAC = curveAC.getPoints(64);
+            const geoAC = new THREE.BufferGeometry().setFromPoints(ptsAC);
+            geoAC.rotateX(-Math.PI / 2);
+            geoAC.translate(0, size.y/2, 0); 
+            
+            const circleMat = new THREE.LineBasicMaterial({ color: 0x555555, opacity: 0.5, transparent: true });
+            const circleAC = new THREE.Line(geoAC, circleMat);
+            sphereGroup.add(circleAC);
+
+            const curveBD = new THREE.EllipseCurve(0, 0, rCircle, rCircle, 0, 2*Math.PI, false, 0);
+            const ptsBD = curveBD.getPoints(64);
+            const geoBD = new THREE.BufferGeometry().setFromPoints(ptsBD);
+            geoBD.rotateX(-Math.PI / 2);
+            geoBD.translate(0, -size.y/2, 0); 
+
+            const circleBD = new THREE.Line(geoBD, circleMat);
+            sphereGroup.add(circleBD);
+
+            scene.add(sphereGroup);
+        }
+
+        function addLabelSprite(text, position, parent = tetrahedronGroup) {
+            const canvas = document.createElement('canvas');
+            const size = 128; 
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.clearRect(0, 0, size, size);
+            ctx.font = 'italic bold 64px "Times New Roman", serif';
+            ctx.fillStyle = '#000000'; 
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, size/2, size/2);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            const spriteMaterial = new THREE.SpriteMaterial({ 
+                map: texture,
+                transparent: true,
+                depthTest: false 
+            });
+            const sprite = new THREE.Sprite(spriteMaterial);
+            
+            sprite.position.copy(position);
+            
+            if(text !== 'O') {
+                sprite.position.multiplyScalar(1.1); 
+            } else {
+                sprite.position.y += 0.4;
+            }
+            
+            sprite.scale.set(1.5, 1.5, 1.5);
+            parent.add(sprite);
+        }
+
+        // --- 逻辑控制 ---
+
+        window.setStep = function(stepIndex) {
+            currentStep = stepIndex;
+
+            document.querySelectorAll('.step-header').forEach((el, idx) => {
+                if(idx === stepIndex) el.classList.add('active');
+                else el.classList.remove('active');
+            });
+            document.querySelectorAll('.step-content').forEach((el, idx) => {
+                if(idx === stepIndex) el.classList.add('open');
+                else el.classList.remove('open');
+            });
+
+            updateSceneByStep(stepIndex);
+        }
+
+        function updateSceneByStep(step) {
+            if (step >= 0) {
+                tetrahedronGroup.visible = true;
+                cuboidGroup.visible = false;
+                sphereGroup.visible = false;
+                toggleControls(false);
+            }
+            
+            if (step >= 1) {
+                cuboidGroup.visible = true;
+            }
+
+            if (step >= 2) {
+                sphereGroup.visible = true;
+                toggleControls(true);
+            }
+        }
+
+        function toggleControls(show) {
+            const bar = document.getElementById('controls-bar');
+            if(show) bar.classList.add('visible');
+            else {
+                bar.classList.remove('visible');
+                if(isRotating) toggleRotation(); 
+            }
+        }
+
+        window.toggleRotation = function() {
+            isRotating = !isRotating;
+            const btn = document.getElementById('btn-rotate');
+            btn.innerHTML = isRotating ? "|| 暂停旋转" : "▶ 自动旋转";
+        }
+
+        window.resetView = function() {
+            controls.reset();
+            isRotating = false;
+            document.getElementById('btn-rotate').innerHTML = "▶ 自动旋转";
+        }
+
+        document.getElementById('speed-slider').addEventListener('input', (e) => {
+            rotationSpeed = e.target.value * 0.002;
+        });
+
+        function onWindowResize() {
+            camera.aspect = document.getElementById('canvas-container').clientWidth / document.getElementById('canvas-container').clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(document.getElementById('canvas-container').clientWidth, document.getElementById('canvas-container').clientHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            if (isRotating) {
+                scene.rotation.y += rotationSpeed;
+            }
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
